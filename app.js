@@ -11,6 +11,50 @@
     quarterly: 'Every 3 months',
     yearly: 'Yearly',
   };
+  const ICON_CHOICES = [
+    ['⚡', 'Electricity'],
+    ['💧', 'Water'],
+    ['🔥', 'Gas / heating'],
+    ['🌐', 'Internet'],
+    ['📱', 'Phone'],
+    ['🏠', 'Rent / mortgage'],
+    ['🚗', 'Car'],
+    ['🛡️', 'Insurance'],
+    ['📺', 'TV / streaming'],
+    ['🎵', 'Music'],
+    ['💳', 'Credit card'],
+    ['🏦', 'Loan / bank'],
+    ['🏋️', 'Gym'],
+    ['🗑️', 'Trash'],
+    ['🎓', 'School'],
+    ['🩺', 'Health'],
+    ['🐾', 'Pet'],
+    ['🛒', 'Groceries'],
+    ['💡', 'Utilities'],
+    ['🧾', 'Other bill'],
+  ];
+  // First match wins, so more specific words come before general ones.
+  const ICON_RULES = [
+    [/electric|power|energy|solar/i, '⚡'],
+    [/water|sewer/i, '💧'],
+    [/\bgas\b|heating|propane/i, '🔥'],
+    [/internet|wi-?fi|broadband|fiber|comcast|xfinity|spectrum/i, '🌐'],
+    [/phone|mobile|cell|verizon|t-mobile|at&t/i, '📱'],
+    [/rent|mortgage|housing|\bhoa\b|apartment/i, '🏠'],
+    [/\bcar\b|auto|vehicle|parking|toll/i, '🚗'],
+    [/insurance/i, '🛡️'],
+    [/netflix|hulu|disney|hbo|\bmax\b|prime video|youtube|stream|\btv\b|cable/i, '📺'],
+    [/spotify|music|pandora|tidal/i, '🎵'],
+    [/credit|card|visa|mastercard|amex/i, '💳'],
+    [/loan|bank|student/i, '🏦'],
+    [/gym|fitness|yoga/i, '🏋️'],
+    [/trash|garbage|waste|recycl/i, '🗑️'],
+    [/school|tuition|college|daycare/i, '🎓'],
+    [/medical|doctor|health|dental|pharmacy/i, '🩺'],
+    [/\bpet|\bvet\b|\bdog|\bcat\b/i, '🐾'],
+    [/grocer|food/i, '🛒'],
+    [/utilit/i, '💡'],
+  ];
   const MONTH_STEPS = { monthly: 1, quarterly: 3, yearly: 12 };
   const DAY_STEPS = { weekly: 7, biweekly: 14 };
 
@@ -34,6 +78,14 @@
     String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const hasAlarm = (b) => b.reminderDays !== '' && b.reminderDays != null;
+
+  function matchIcon(text) {
+    const rule = ICON_RULES.find(([re]) => re.test(text || ''));
+    return rule ? rule[1] : null;
+  }
+  const autoIcon = (name, category) => matchIcon(name) || matchIcon(category) || '🧾';
+  const billIcon = (b) => b.icon || autoIcon(b.name, b.category);
+  const iconTile = (icon, extra = '') => `<span class="icon-tile ${extra}" aria-hidden="true">${icon}</span>`;
 
   // ---------- state ----------
   function emptyState() {
@@ -101,6 +153,24 @@
   const activeBills = () => state.bills.filter((b) => !b.done);
 
   // ---------- rendering ----------
+  function renderGreeting() {
+    const hour = new Date().getHours();
+    const hello = hour < 12 ? 'Good morning ☀️' : hour < 18 ? 'Good afternoon 👋' : 'Good evening 🌙';
+    const today = startOfToday();
+    const active = activeBills();
+    const overdue = active.filter((b) => dayDiff(today, parseISO(b.dueDate)) < 0).length;
+    const thisWeek = active.filter((b) => {
+      const d = dayDiff(today, parseISO(b.dueDate));
+      return d >= 0 && d <= 7;
+    }).length;
+    let msg;
+    if (!active.length) msg = "Let's get your bills organized together.";
+    else if (overdue) msg = `${plural(overdue, 'bill')} ${overdue === 1 ? 'needs' : 'need'} attention today.`;
+    else if (thisWeek) msg = `${plural(thisWeek, 'bill')} coming up this week. You've got this.`;
+    else msg = "You're all caught up. Nice work! ✅";
+    $('#greeting').innerHTML = `<h2>${hello}</h2><p>${esc(msg)}</p>`;
+  }
+
   function renderStats() {
     const today = startOfToday();
     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -126,6 +196,7 @@
     ].join('');
     return `
       <article class="bill ${tone}" data-id="${esc(b.id)}">
+        ${iconTile(billIcon(b), tone)}
         <div class="bill-main">
           <div class="bill-title"><h3>${esc(b.name)}</h3>${chips}</div>
           <div class="bill-meta"><span class="due ${tone}">${dueText(days)}</span> · ${dateLabel(b.dueDate)}</div>
@@ -156,6 +227,7 @@
     if (!active.length) {
       $('#billGroups').innerHTML = `
         <div class="empty">
+          <div class="emoji" aria-hidden="true">🌱</div>
           <h2>No bills yet</h2>
           <p>Add your first bill with its due date, notes and an alarm, and it will show up here.</p>
           <button class="btn primary" type="button" data-act="add">+ Add your first bill</button>
@@ -163,9 +235,9 @@
       return;
     }
     const groups = [
-      { key: 'overdue', title: 'Overdue', items: [] },
-      { key: 'week', title: 'Due in the next 7 days', items: [] },
-      { key: 'later', title: 'Later', items: [] },
+      { key: 'overdue', title: '⏰ Needs attention', items: [] },
+      { key: 'week', title: '📅 Coming up this week', items: [] },
+      { key: 'later', title: '🌿 Later on', items: [] },
     ];
     for (const b of active) {
       const days = dayDiff(today, parseISO(b.dueDate));
@@ -209,7 +281,7 @@
           .map(
             (b) => `
           <div class="reminder-item" data-id="${esc(b.id)}">
-            <span><strong>${esc(b.name)}</strong> ${b.amount ? money(b.amount) : ''} · ${dueText(dayDiff(today, parseISO(b.dueDate))).toLowerCase()}</span>
+            <span><span aria-hidden="true">${billIcon(b)}</span> <strong>${esc(b.name)}</strong> ${b.amount ? money(b.amount) : ''} · ${dueText(dayDiff(today, parseISO(b.dueDate))).toLowerCase()}</span>
             <span class="row">
               <button class="btn primary sm" type="button" data-act="pay">Mark paid</button>
               <button class="btn sm" type="button" data-act="dismiss">Dismiss</button>
@@ -244,6 +316,7 @@
     if (!list.length) {
       $('#historyList').innerHTML = `
         <div class="empty">
+          <div class="emoji" aria-hidden="true">📖</div>
           <h2>No payments yet</h2>
           <p>When you mark a bill as paid, it's recorded here with the date and amount.</p>
         </div>`;
@@ -255,6 +328,8 @@
       if (!months.has(key)) months.set(key, []);
       months.get(key).push(p);
     }
+    const billsById = new Map(state.bills.map((b) => [b.id, b]));
+    const payIcon = (p) => p.icon || (billsById.has(p.billId) ? billIcon(billsById.get(p.billId)) : autoIcon(p.billName, p.category));
     $('#historyList').innerHTML = [...months.entries()]
       .map(([key, items]) => {
         const title = parseISO(`${key}-01`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -262,18 +337,19 @@
         return `
           <section class="month">
             <div class="month-head"><span>${title}</span><span class="total">${money(total)}</span></div>
-            ${items.map(payRow).join('')}
+            ${items.map((p) => payRow(p, payIcon(p))).join('')}
           </section>`;
       })
       .join('');
   }
 
-  function payRow(p) {
+  function payRow(p, icon) {
     const late = p.dueDate ? dayDiff(parseISO(p.dueDate), parseISO(p.paidDate)) : 0;
     const tag = late > 0 ? `<span class="tag late">${plural(late, 'day')} late</span>` : '<span class="tag ontime">On time</span>';
     return `
       <div class="pay-row" data-pay="${esc(p.id)}">
-        <div>
+        ${iconTile(icon, 'small')}
+        <div class="pay-main">
           <div class="name">${esc(p.billName)}</div>
           <div class="meta">Paid ${dateLabel(p.paidDate)}${p.dueDate ? ` · due ${dateLabel(p.dueDate)}` : ''}</div>
           ${p.note ? `<div class="meta">${esc(p.note)}</div>` : ''}
@@ -300,6 +376,7 @@
   }
 
   function renderAll() {
+    renderGreeting();
     renderStats();
     renderReminders();
     renderBills();
@@ -337,6 +414,9 @@
     editingId = bill ? bill.id : null;
     $('#billDialogTitle').textContent = bill ? 'Edit bill' : 'Add bill';
     $('#f-name').value = bill?.name ?? '';
+    $('#f-icon').innerHTML =
+      '<option value="">Automatic</option>' + ICON_CHOICES.map(([icon, label]) => `<option value="${icon}">${icon}  ${label}</option>`).join('');
+    $('#f-icon').value = bill?.icon ?? '';
     $('#f-amount').value = bill?.amount ?? '';
     $('#f-due').value = bill?.dueDate ?? toISO(startOfToday());
     $('#f-repeat').value = bill?.repeat ?? 'monthly';
@@ -346,10 +426,17 @@
     $('#f-autopay').checked = !!bill?.autopay;
     $('#f-notes').value = bill?.notes ?? '';
     $('#billError').textContent = '';
+    updateAutoIconLabel();
     const cats = new Set([...DEFAULT_CATEGORIES, ...state.bills.map((b) => b.category).filter(Boolean)]);
     $('#categoryList').innerHTML = [...cats].map((c) => `<option value="${esc(c)}">`).join('');
     $('#billDialog').showModal();
     $('#f-name').focus();
+  }
+
+  // Shows which picture "Automatic" will pick for the name typed so far.
+  function updateAutoIconLabel() {
+    const icon = autoIcon($('#f-name').value, $('#f-category').value);
+    $('#f-icon').options[0].textContent = `${icon}  Automatic`;
   }
 
   function submitBillForm(e) {
@@ -366,6 +453,7 @@
     if (!existing || existing.dueDate !== due) bill.anchorDay = parseISO(due).getDate();
     Object.assign(bill, {
       name,
+      icon: $('#f-icon').value,
       amount: amountRaw === '' ? '' : Math.round(Number(amountRaw) * 100) / 100,
       dueDate: due,
       repeat: $('#f-repeat').value,
@@ -380,7 +468,7 @@
     $('#billDialog').close();
     renderAll();
     checkReminders();
-    toast(existing ? `Saved changes to ${name}.` : `Added ${name}.`);
+    toast(existing ? `Saved changes to ${name}.` : `Added ${name} ✅`);
   }
 
   function showError(sel, msg, focusSel) {
@@ -415,6 +503,7 @@
       id: uid(),
       billId: bill.id,
       billName: bill.name,
+      icon: billIcon(bill),
       category: bill.category || '',
       amount: amountRaw === '' ? 0 : Math.round(Number(amountRaw) * 100) / 100,
       dueDate: bill.dueDate,
@@ -428,7 +517,7 @@
     save();
     $('#payDialog').close();
     renderAll();
-    const msg = bill.done ? `${bill.name} paid.` : `${bill.name} paid. Next due ${dateLabel(bill.dueDate)}.`;
+    const msg = bill.done ? `${bill.name} paid! 🎉` : `${bill.name} paid! 🎉 Next due ${dateLabel(bill.dueDate)}.`;
     toast(msg, 'Undo', () => {
       state.payments = state.payments.filter((p) => p.id !== payment.id);
       Object.assign(bill, before);
@@ -655,6 +744,8 @@
     $('#historyFilter').addEventListener('change', renderHistory);
 
     $('#billForm').addEventListener('submit', submitBillForm);
+    $('#f-name').addEventListener('input', updateAutoIconLabel);
+    $('#f-category').addEventListener('input', updateAutoIconLabel);
     $('#payForm').addEventListener('submit', submitPayForm);
     document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
 

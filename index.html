@@ -5,21 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bills Tracker</title>
   <meta name="description" content="Track your bills, due dates, reminders and payment history.">
-  <meta name="theme-color" content="#1f7a5c">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f7a5c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='M3 9h18M8 2v4M16 2v4'/%3E%3Cpath d='m9 15 2 2 4-4'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#d6f5e6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%BF%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header class="top">
     <div class="wrap top-inner">
-      <h1 class="brand">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="17" rx="2"/>
-          <path d="M3 9h18M8 2v4M16 2v4"/>
-          <path d="m9 15 2 2 4-4"/>
-        </svg>
-        Bills Tracker
-      </h1>
+      <h1 class="brand"><span aria-hidden="true">🌿</span> Bills Tracker</h1>
       <button class="btn primary" id="addBtn" type="button">+ Add bill</button>
     </div>
     <nav class="wrap tabs" role="tablist" aria-label="Sections">
@@ -31,6 +27,7 @@
 
   <main class="wrap">
     <section id="tab-bills" role="tabpanel">
+      <div class="greeting" id="greeting"></div>
       <div id="reminders"></div>
       <div class="stats" id="stats"></div>
       <div id="billGroups"></div>
@@ -105,6 +102,10 @@
       <label class="field">
         <span>Name</span>
         <input id="f-name" required maxlength="80" placeholder="e.g. Electric, Rent, Netflix" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Picture</span>
+        <select id="f-icon"></select>
       </label>
       <div class="grid2">
         <label class="field">
