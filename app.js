@@ -561,11 +561,29 @@
 
   function notify(title, body, tag) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    try {
-      new Notification(title, { body, tag });
-    } catch (e) {
-      /* some mobile browsers only allow notifications from a service worker */
+    const options = { body, tag, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' };
+    // Android only shows notifications sent through the service worker.
+    if (swRegistration) {
+      swRegistration.showNotification(title, options).catch(() => {});
+      return;
     }
+    try {
+      new Notification(title, options);
+    } catch (e) {
+      /* no service worker and this browser refuses page notifications */
+    }
+  }
+
+  let swRegistration = null;
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(() => navigator.serviceWorker.ready)
+      .then((reg) => (swRegistration = reg))
+      .catch(() => {
+        /* the app still works without offline support */
+      });
   }
 
   function checkReminders() {
@@ -733,6 +751,7 @@
   }
 
   function init() {
+    registerServiceWorker();
     setCurrency(state.currency);
     $('#currency').value = state.currency;
 
